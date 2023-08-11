@@ -1,8 +1,8 @@
 <?php
 
 use TelegramGithubNotify\App\Helpers\ConfigHelper;
-use TelegramGithubNotify\App\Helpers\EventHelper;
-use TelegramGithubNotify\App\Helpers\SettingHelper;
+use TelegramGithubNotify\App\Models\Event;
+use TelegramGithubNotify\App\Models\Setting;
 
 if (!function_exists('config')) {
     /**
@@ -91,18 +91,30 @@ if (!function_exists('event_config')) {
      */
     function event_config(): array
     {
-        return (new EventHelper())->getEventConfig();
+        return (new Event())->getEventConfig();
     }
 }
 
-if (!function_exists('enable_all_events')) {
+if (!function_exists('all_events_notify')) {
     /**
-     * Return enable all events
+     * Return all events notify status
      *
      * @return bool
      */
-    function enable_all_events(): bool
+    function all_events_notify(): bool
     {
-        return (new SettingHelper())->enableAllEvents();
+        return (new Setting())->allEventsNotifyStatus();
+    }
+}
+
+if (!function_exists('setting_config')) {
+    /**
+     * Return setting config
+     *
+     * @return array
+     */
+    function setting_config(): array
+    {
+        return (new Setting())->getSettingConfig();
     }
 }

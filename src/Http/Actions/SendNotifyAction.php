@@ -3,7 +3,7 @@
 namespace TelegramGithubNotify\App\Http\Actions;
 
 use Symfony\Component\HttpFoundation\Request;
-use TelegramGithubNotify\App\Services\EventSettingService;
+use TelegramGithubNotify\App\Services\EventService;
 use TelegramGithubNotify\App\Services\NotificationService;
 use TelegramGithubNotify\App\Services\TelegramService;
 
@@ -13,7 +13,7 @@ class SendNotifyAction
 
     protected NotificationService $notificationService;
 
-    protected EventSettingService $eventSettingService;
+    protected EventService $eventSettingService;
 
     protected Request $request;
 
@@ -24,7 +24,7 @@ class SendNotifyAction
         $this->request = Request::createFromGlobals();
         $this->telegramService = new TelegramService();
         $this->notificationService = new NotificationService();
-        $this->eventSettingService = new EventSettingService();
+        $this->eventSettingService = new EventService();
 
         $this->chatIds = config('telegram-bot.notify_chat_ids');
     }
@@ -36,33 +36,35 @@ class SendNotifyAction
      */
     public function __invoke(): void
     {
-        $this->telegramService->checkCallback();
-        $chatMessageId = $this->telegramService->messageData['message']['chat']['id'] ?? '';
+        // Send a GitHub event result to all chat ids in env
+        if (!is_null($this->request->server->get('HTTP_X_GITHUB_EVENT'))) {
+            $this->sendNotification();
+            return;
+        }
 
+        // Telegram bot handler
+        $chatMessageId = $this->telegramService->messageData['message']['chat']['id'] ?? '';
         if (!empty($chatMessageId)) {
             $this->handleEventInTelegram($chatMessageId);
             return;
         }
 
-        // Send a GitHub event result to all chat ids in env
-        if (!is_null($this->request->server->get('HTTP_X_GITHUB_EVENT'))) {
-            $this->sendNotification();
-        }
+        $this->telegramService->checkCallback();
     }
 
     /**
      * @param string $chatMessageId
      * @return void
      */
-    public function handleEventInTelegram(string $chatMessageId): void
+    private function handleEventInTelegram(string $chatMessageId): void
     {
         // Send a result to only the bot owner
-        if ($chatMessageId == config('telegram-bot.chat_id')) {
+        if ($chatMessageId == $this->telegramService->chatId) {
             $this->telegramService->telegramToolHandler($this->telegramService->messageData['message']['text']);
             return;
         }
 
-        // Notify access denied to other chat ids
+        // Notify access denied to other/invalid chat ids
         if (!in_array($chatMessageId, $this->chatIds)) {
             $this->notificationService->accessDenied($this->telegramService);
         }
@@ -71,11 +73,11 @@ class SendNotifyAction
     /**
      * @return void
      */
-    protected function sendNotification(): void
+    private function sendNotification(): void
     {
         $payload = $this->notificationService->setPayload($this->request);
 
-        if (!$this->eventSettingService->validateAccessEvent($this->request, $payload)) {
+        if (empty($payload) || !$this->eventSettingService->validateAccessEvent($this->request, $payload)) {
             return;
         }
 

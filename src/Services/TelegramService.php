@@ -2,6 +2,8 @@
 
 namespace TelegramGithubNotify\App\Services;
 
+use TelegramGithubNotify\App\Models\Setting;
+
 class TelegramService extends AppService
 {
     public array $messageData;
@@ -13,6 +15,7 @@ class TelegramService extends AppService
         parent::__construct();
 
         $this->messageData = $this->telegram->getData() ?? [];
+        $this->settingService = new SettingService();
     }
 
     /**
@@ -28,8 +31,8 @@ class TelegramService extends AppService
                 $reply = view('tools.start', ['first_name' => $this->telegram->FirstName()]);
                 $this->sendMessage($reply, ['photo' => curl_file_create(config('app.image'), 'image/png')], 'Photo');
                 break;
-            case '/help':
-                $this->sendMessage(view('tools.help'), ['reply_markup' => $this->helpMarkup()]);
+            case '/menu':
+                $this->sendMessage(view('tools.menu'), ['reply_markup' => $this->menuMarkup()]);
                 break;
             case '/token':
             case '/id':
@@ -38,7 +41,7 @@ class TelegramService extends AppService
                 $this->sendMessage(view('tools.' . trim($text, '/')));
                 break;
             case '/settings':
-                $this->settingService->settingMarkup($this->telegram);
+                $this->settingService->settingHandle();
                 break;
             default:
                 $this->sendMessage('🤨 Invalid Request!');
@@ -51,16 +54,16 @@ class TelegramService extends AppService
      * @param string|null $callback
      * @return void
      */
-    protected function sendCallbackResponse(string $callback = null): void
+    private function sendCallbackResponse(string $callback = null): void
     {
-        if (!empty($callback) && $callback == 'about') {
-            $reply = view('tools.about');
-            $content = array(
-                'callback_query_id' => $this->telegram->Callback_ID(),
-                'text' => $reply,
-                'show_alert' => true
-            );
-            $this->telegram->answerCallbackQuery($content);
+        if (empty($callback)) {
+            return;
+        }
+
+        if ($callback === 'about') {
+            $this->answerCallbackQuery(view('tools.about'));
+        } elseif (str_contains($callback, Setting::SETTING_PREFIX)) {
+            $this->settingService->settingCallbackHandler($callback);
         }
     }
 
@@ -72,25 +75,9 @@ class TelegramService extends AppService
     public function checkCallback(): bool
     {
         if (!is_null($this->telegram->Callback_ChatID())) {
-            $callback = $this->telegram->Callback_Data();
-            $this->sendCallbackResponse($callback);
+            $this->sendCallbackResponse($this->telegram->Callback_Data());
             return true;
         }
         return false;
-    }
-
-    /**
-     * @return array[]
-     */
-    public function helpMarkup(): array
-    {
-        return [
-            [
-                $this->telegram->buildInlineKeyBoardButton("📰 About", "", "about", ""),
-                $this->telegram->buildInlineKeyBoardButton("📞 Contact", config('author.contact'))
-            ], [
-                $this->telegram->buildInlineKeyBoardButton("💠 Source Code", config('author.source_code'))
-            ]
-        ];
     }
 }
