@@ -1,11 +1,36 @@
 <?php
 
-namespace TelegramGithubNotify\App\Services;
+namespace TelegramNotificationBot\App\Services;
 
-use TelegramGithubNotify\App\Models\Setting;
+use TelegramNotificationBot\App\Models\Setting;
 
 class TelegramService extends AppService
 {
+    public const MENU_COMMANDS = [
+        [
+            'command' => '/start',
+            'description' => 'Welcome to the bot'
+        ], [
+            'command' => '/menu',
+            'description' => 'Show menu of the bot'
+        ], [
+            'command' => '/token',
+            'description' => 'Show token of the bot'
+        ], [
+            'command' => '/id',
+            'description' => 'Show the ID of the current chat'
+        ], [
+            'command' => '/usage',
+            'description' => 'Show step by step usage'
+        ], [
+            'command' => '/server',
+            'description' => 'To get Server Information'
+        ], [
+            'command' => '/settings',
+            'description' => 'Show settings of the bot'
+        ],
+    ];
+
     public array $messageData;
 
     public SettingService $settingService;
@@ -24,12 +49,11 @@ class TelegramService extends AppService
      * @param string $text
      * @return void
      */
-    public function telegramToolHandler(string $text): void
+    public function telegramToolHandler(string $text = '/start'): void
     {
         switch ($text) {
             case '/start':
-                $reply = view('tools.start', ['first_name' => $this->telegram->FirstName()]);
-                $this->sendMessage($reply, ['photo' => curl_file_create(config('app.image'), 'image/png')], 'Photo');
+                $this->sendStartMessage();
                 break;
             case '/menu':
                 $this->sendMessage(view('tools.menu'), ['reply_markup' => $this->menuMarkup()]);
@@ -43,9 +67,43 @@ class TelegramService extends AppService
             case '/settings':
                 $this->settingService->settingHandle();
                 break;
+            case '/set_menu':
+                $this->setMyCommands();
+                break;
             default:
                 $this->sendMessage('🤨 Invalid Request!');
         }
+    }
+
+    /**
+     * Send the welcome message to a telegram
+     *
+     * @return void
+     */
+    public function sendStartMessage(): void
+    {
+        $reply = view(
+            'tools.start',
+            ['first_name' => $this->telegram->FirstName()]
+        );
+        $this->sendMessage(
+            $reply,
+            ['photo' => curl_file_create(config('app.image'), 'image/png')],
+            'Photo'
+        );
+    }
+
+    /**
+     * Set the menu button for a telegram
+     *
+     * @return void
+     */
+    public function setMyCommands(): void
+    {
+        $this->telegram->setMyCommands([
+            'commands' => json_encode(self::MENU_COMMANDS)
+        ]);
+        $this->sendMessage(view('tools.set_menu'));
     }
 
     /**
