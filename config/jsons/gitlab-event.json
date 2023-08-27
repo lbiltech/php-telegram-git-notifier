@@ -33,9 +33,5 @@
   "release": {
     "create": true,
     "update": false
-  },
-  "emoji": {
-    "award": true,
-    "revoke": false
   }
 }
